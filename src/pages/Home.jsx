@@ -18,6 +18,7 @@ export default function Home() {
     socket.emit("create_room", { name: name.trim() }, (res) => {
       setLoading(false);
       if (res?.error) return setError(res.error);
+      sessionStorage.setItem(`killer_name_${res.code}`, name.trim());
       navigate(`/room/${res.code}/play`);
     });
   }
@@ -34,6 +35,7 @@ export default function Home() {
       (res) => {
         setLoading(false);
         if (res?.error) return setError(res.error);
+        sessionStorage.setItem(`killer_name_${res.code}`, name.trim());
         navigate(`/room/${res.code}/play`);
       }
     );
