@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { socket } from "../socket.js";
 import PlayerCard from "../components/PlayerCard.jsx";
+import GameRound from "../components/GameRound.jsx";
+import FinalRound from "../components/FinalRound.jsx";
+import ResultsView from "../components/ResultsView.jsx";
 
 const nameKey = (code) => `killer_name_${code}`;
 
@@ -124,6 +127,23 @@ export default function Lobby() {
   const isHost = state.hostId === socket.id;
   const connectedCount = state.players.filter((p) => p.connected).length;
 
+  if (state.phase === "discussion" || state.phase === "voting") {
+    return <GameRound code={code} state={state} />;
+  }
+  if (state.phase === "final") {
+    return <FinalRound code={code} state={state} />;
+  }
+  if (state.phase === "ended") {
+    return <ResultsView state={state} />;
+  }
+
+  function handleStartGame() {
+    setError("");
+    socket.emit("start_game", { code }, (res) => {
+      if (res?.error) setError(res.error);
+    });
+  }
+
   return (
     <div className="screen" style={{ justifyContent: "flex-start", paddingTop: 60 }}>
       <div className="brand">
@@ -147,14 +167,18 @@ export default function Lobby() {
         </div>
 
         {isHost ? (
-          <button
-            className="btn-primary"
-            style={{ marginTop: 26 }}
-            disabled={connectedCount < 3}
-            title={connectedCount < 3 ? "تحتاج 3 لاعبين على الأقل" : ""}
-          >
-            {connectedCount < 3 ? "بانتظار المزيد من اللاعبين..." : "ابدأ اللعبة"}
-          </button>
+          <>
+            <button
+              className="btn-primary"
+              style={{ marginTop: 26 }}
+              disabled={connectedCount < 3}
+              title={connectedCount < 3 ? "تحتاج 3 لاعبين على الأقل" : ""}
+              onClick={handleStartGame}
+            >
+              {connectedCount < 3 ? "بانتظار المزيد من اللاعبين..." : "ابدأ اللعبة"}
+            </button>
+            {error && <div className="error-text" style={{ marginTop: 10 }}>{error}</div>}
+          </>
         ) : (
           <p style={{ marginTop: 26, color: "var(--bone-dim)", textAlign: "center" }}>
             بانتظار المضيف ليبدأ اللعبة...
