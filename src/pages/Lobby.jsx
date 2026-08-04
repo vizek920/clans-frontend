@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { socket } from "../socket.js";
 import PlayerCard from "../components/PlayerCard.jsx";
 import GameRound from "../components/GameRound.jsx";
@@ -10,16 +10,21 @@ const nameKey = (code) => `killer_name_${code}`;
 
 export default function Lobby() {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [state, setState] = useState(null);
   const [error, setError] = useState("");
   const [needsName, setNeedsName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [slow, setSlow] = useState(false);
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
+  const [rejected, setRejected] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const attemptedRef = useRef(false);
 
   function attemptJoin(name) {
     setError("");
     setNeedsName(false);
+    setRejected(false);
     socket.emit("join_room", { code, name, type: "player" }, (res) => {
       if (res?.error) {
         setError(res.error);
@@ -27,6 +32,7 @@ export default function Lobby() {
         return;
       }
       sessionStorage.setItem(nameKey(code), name);
+      if (res?.pending) setAwaitingApproval(true);
     });
   }
 
@@ -35,9 +41,30 @@ export default function Lobby() {
       if (payload.code === code) {
         setState(payload);
         setSlow(false);
+        setAwaitingApproval(false);
       }
     }
+    function onPending(payload) {
+      if (payload.code === code) setAwaitingApproval(true);
+    }
+    function onRejected(payload) {
+      if (payload.code === code) {
+        setAwaitingApproval(false);
+        setRejected(true);
+        sessionStorage.removeItem(nameKey(code));
+      }
+    }
+    function onKicked(payload) {
+      if (payload.code === code) {
+        setKicked(true);
+        sessionStorage.removeItem(nameKey(code));
+      }
+    }
+
     socket.on("state_update", onState);
+    socket.on("pending_update", onPending);
+    socket.on("join_rejected", onRejected);
+    socket.on("kicked", onKicked);
 
     // مؤشر تأخير لو السيرفر نايم (خطة Render المجانية) وياخذ وقت يصحى
     const slowTimer = setTimeout(() => setSlow(true), 4000);
@@ -49,8 +76,6 @@ export default function Lobby() {
       if (savedName) {
         attemptJoin(savedName);
       } else {
-        // نعطي فرصة قصيرة لبث الحالة (لو كنا انضممنا فعلاً من صفحة الدخول
-        // بنفس الجلسة)؛ لو ما وصل شي، نطلب الاسم بدل ما نعلّق للأبد
         setTimeout(() => {
           setState((current) => {
             if (!current) setNeedsName(true);
@@ -62,10 +87,47 @@ export default function Lobby() {
 
     return () => {
       socket.off("state_update", onState);
+      socket.off("pending_update", onPending);
+      socket.off("join_rejected", onRejected);
+      socket.off("kicked", onKicked);
       clearTimeout(slowTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
+
+  function goHome() {
+    navigate("/");
+  }
+
+  if (kicked) {
+    return (
+      <div className="screen">
+        <div className="brand">
+          <div className="brand-seal">ق</div>
+          <div className="brand-title">لعبة القاتل</div>
+        </div>
+        <div className="panel" style={{ textAlign: "center" }}>
+          <p style={{ color: "var(--blood-bright)", marginBottom: 18 }}>تم طردك من الغرفة بواسطة المضيف</p>
+          <button className="btn-primary" onClick={goHome}>الرجوع للرئيسية</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (rejected) {
+    return (
+      <div className="screen">
+        <div className="brand">
+          <div className="brand-seal">ق</div>
+          <div className="brand-title">لعبة القاتل</div>
+        </div>
+        <div className="panel" style={{ textAlign: "center" }}>
+          <p style={{ color: "var(--blood-bright)", marginBottom: 18 }}>رفض المضيف طلب انضمامك</p>
+          <button className="btn-primary" onClick={goHome}>الرجوع للرئيسية</button>
+        </div>
+      </div>
+    );
+  }
 
   if (needsName) {
     return (
@@ -100,6 +162,20 @@ export default function Lobby() {
             </button>
           </form>
         </div>
+      </div>
+    );
+  }
+
+  if (awaitingApproval && !state) {
+    return (
+      <div className="screen">
+        <div className="brand">
+          <div className="brand-seal">ق</div>
+          <div className="brand-title">لعبة القاتل</div>
+        </div>
+        <p className="waiting-dots" style={{ color: "var(--bone-dim)" }}>
+          بانتظار موافقة المضيف على دخولك
+        </p>
       </div>
     );
   }
@@ -144,6 +220,18 @@ export default function Lobby() {
     });
   }
 
+  function handleApprove(targetId) {
+    socket.emit("approve_join", { code, targetId }, () => {});
+  }
+
+  function handleReject(targetId) {
+    socket.emit("reject_join", { code, targetId }, () => {});
+  }
+
+  function handleKick(targetId) {
+    socket.emit("kick_player", { code, targetId }, () => {});
+  }
+
   return (
     <div className="screen" style={{ justifyContent: "flex-start", paddingTop: 60 }}>
       <div className="brand">
@@ -156,13 +244,58 @@ export default function Lobby() {
         شارك هذا الكود مع الجميع بالفويس • {connectedCount} لاعب متصل
       </p>
 
+      {isHost && state.pendingRequests?.length > 0 && (
+        <div className="panel" style={{ maxWidth: 720, marginBottom: 20, borderColor: "var(--blood-bright)" }}>
+          <h2 style={{ fontSize: 16, color: "var(--blood-bright)", marginBottom: 14 }}>
+            طلبات انضمام بانتظار موافقتك ({state.pendingRequests.length})
+          </h2>
+          {state.pendingRequests.map((req) => (
+            <div
+              key={req.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 0",
+                borderTop: "1px solid rgba(212,175,106,0.15)",
+              }}
+            >
+              <span>{req.name}</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn-primary"
+                  style={{ padding: "6px 16px", width: "auto" }}
+                  onClick={() => handleApprove(req.id)}
+                >
+                  قبول
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ padding: "6px 16px", width: "auto", margin: 0, borderColor: "var(--blood-bright)", color: "var(--blood-bright)" }}
+                  onClick={() => handleReject(req.id)}
+                >
+                  رفض
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="panel" style={{ maxWidth: 720 }}>
         <h2 style={{ fontSize: 18, color: "var(--brass)", marginBottom: 18 }}>
           اللاعبون بالغرفة
         </h2>
         <div className="player-grid">
           {state.players.map((p, i) => (
-            <PlayerCard key={p.id} player={p} isHost={p.id === state.hostId} index={i} />
+            <PlayerCard
+              key={p.id}
+              player={p}
+              isHost={p.id === state.hostId}
+              index={i}
+              isSelf={p.id === socket.id}
+              onKick={isHost && p.id !== state.hostId ? handleKick : null}
+            />
           ))}
         </div>
 
