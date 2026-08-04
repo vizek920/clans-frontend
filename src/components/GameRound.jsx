@@ -16,6 +16,10 @@ export default function GameRound({ code, state }) {
     socket.emit("cast_vote", { code, targetId }, () => {});
   }
 
+  function handleKick(targetId) {
+    socket.emit("kick_player", { code, targetId }, () => {});
+  }
+
   return (
     <div className="screen" style={{ justifyContent: "flex-start", paddingTop: 50 }}>
       <div className="brand">
@@ -42,6 +46,7 @@ export default function GameRound({ code, state }) {
               isSelf={p.id === socket.id}
               onVote={isVoting ? handleVote : null}
               votedByMe={myTarget === p.id}
+              onKick={isHost && p.id !== state.hostId ? handleKick : null}
             />
           ))}
         </div>
