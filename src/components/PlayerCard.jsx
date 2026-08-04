@@ -5,6 +5,7 @@ export default function PlayerCard({
   onVote,
   isSelf = false,
   votedByMe = false,
+  onKick,
 }) {
   const classes = [
     "note-card",
@@ -66,6 +67,28 @@ export default function PlayerCard({
           onClick={() => onVote(player.id)}
         >
           {votedByMe ? "✓ صوّتّ عليه" : "صوّت للإقصاء"}
+        </button>
+      )}
+
+      {onKick && !isSelf && (
+        <button
+          className="mono"
+          title="طرد اللاعب"
+          onClick={() => onKick(player.id)}
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            background: "transparent",
+            border: "1px solid rgba(139,26,26,0.5)",
+            color: "var(--blood-bright)",
+            borderRadius: 4,
+            fontSize: 11,
+            padding: "1px 6px",
+            lineHeight: 1.4,
+          }}
+        >
+          ✕
         </button>
       )}
 
