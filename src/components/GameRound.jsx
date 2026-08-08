@@ -44,7 +44,7 @@ export default function GameRound({ code, state }) {
               isHost={p.id === state.hostId}
               index={i}
               isSelf={p.id === socket.id}
-              onVote={isVoting ? handleVote : null}
+              onVote={isVoting && !isHost ? handleVote : null}
               votedByMe={myTarget === p.id}
               onKick={isHost && p.id !== state.hostId ? handleKick : null}
             />
