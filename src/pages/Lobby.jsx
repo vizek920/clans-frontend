@@ -240,7 +240,10 @@ export default function Lobby() {
       </div>
 
       <div className="room-code">{code}</div>
-      <p style={{ color: "var(--bone-dim)", marginTop: 8, marginBottom: 32 }}>
+      <p style={{ color: "var(--bone-dim)", marginTop: 8, marginBottom: 4 }}>
+        المراقب: {state.hostName || "—"}
+      </p>
+      <p style={{ color: "var(--bone-dim)", marginBottom: 32 }}>
         شارك هذا الكود مع الجميع بالفويس • {connectedCount} لاعب متصل
       </p>
 
