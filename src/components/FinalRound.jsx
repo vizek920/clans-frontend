@@ -60,7 +60,7 @@ export default function FinalRound({ code, state }) {
 
         {!iAmFinalist && (
           <p style={{ textAlign: "center", color: "var(--bone-dim)" }}>
-            أنت مُقصى — انتظر النتيجة النهائية
+            {state.hostId === socket.id ? "أنت تراقب — انتظر النتيجة النهائية" : "أنت مُقصى — انتظر النتيجة النهائية"}
           </p>
         )}
       </div>
