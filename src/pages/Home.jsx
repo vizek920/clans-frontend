@@ -64,7 +64,7 @@ export default function Home() {
             }}
             onClick={() => setMode("create")}
           >
-            إنشاء غرفة
+            إنشاء غرفة (كمراقب)
           </button>
           <button
             className="btn-ghost"
@@ -75,12 +75,18 @@ export default function Home() {
             }}
             onClick={() => setMode("join")}
           >
-            الانضمام لغرفة
+            الانضمام كلاعب
           </button>
         </div>
 
+        {mode === "create" && (
+          <p style={{ color: "var(--bone-dim)", fontSize: 13, marginBottom: 16, textAlign: "center" }}>
+            بصفتك مراقب، تدير اللعبة وما تشارك فيها — اللاعبين ينضمون منفصلين بزر "الانضمام كلاعب"
+          </p>
+        )}
+
         <form onSubmit={mode === "create" ? handleCreate : handleJoin}>
-          <label className="field-label">اسمك بالجولة</label>
+          <label className="field-label">{mode === "create" ? "اسمك (كمراقب)" : "اسمك بالجولة"}</label>
           <input
             className="field-input"
             value={name}
